@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spin Expert AI</title>
+<style>
+body{margin:0;font-family:system-ui,sans-serif;background:#f3f7fb;color:#16324a}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px}
+h1{font-size:22px;margin:0}
+.lang button{padding:8px 14px;border:0;border-radius:8px;background:#e1edf5;font-size:15px}
+.lang button.on{background:#fff;font-weight:bold}
+.card{display:block;width:calc(100% - 32px);margin:10px 16px;padding:18px;border-radius:14px;border:1px solid #c5d6e3;background:#fff;text-align:left;font-size:17px;font-weight:bold}
+.card small{display:block;font-weight:normal;color:#5b7186;margin-top:4px}
+.main{background:#17507a;color:#fff}.main small{color:#cfe3f1}
+h2{margin:24px 16px 8px;font-size:20px}
+.machine{margin:0 16px;background:#fff;border-bottom:1px solid #dde7ef}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px}
+.row .nm{flex:1;min-width:0;overflow-wrap:anywhere;cursor:pointer}
+.row button,.pdf button{margin-left:6px;padding:6px 10px;border-radius:8px;border:1px solid #17507a;background:#fff;color:#17507a}
+.pdf{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 14px 8px 28px;font-size:14px;border-top:1px dashed #dde7ef}
+.pdf span{min-width:0;overflow-wrap:anywhere}
+.empty{padding:8px 14px 12px 28px;font-size:14px;color:#5b7186}
+#msg{margin:10px 16px;min-height:1.2em;font-weight:bold}
+#qbox{display:none;margin:0 16px 10px;padding:14px;background:#fff;border:1px solid #c5d6e3;border-radius:14px}
+#qbox textarea{width:100%;box-sizing:border-box;min-height:80px;padding:10px;border:1px solid #c5d6e3;border-radius:8px;font-size:16px;font-family:inherit}
+#qbox button{margin-top:8px;padding:10px 16px;border:0;border-radius:8px;background:#17507a;color:#fff;font-size:16px}
+#qleft{font-size:14px;color:#5b7186;margin-bottom:8px}
+#ans{margin-top:10px;white-space:pre-wrap}
+#adbox{margin:10px 16px;padding:14px;border:1px dashed #c5d6e3;border-radius:10px;text-align:center;color:#8aa0b2;font-size:13px}
+</style>
+</head>
+<body>
+<header><h1>Spin Expert AI</h1>
+<div class="lang"><button id="en" class="on" onclick="setLang('en')">EN</button><button id="hi" onclick="setLang('hi')">हिंदी</button></div>
+</header>
+<button class="card main" onclick="toggleAsk()"><span data-k="ask"></span><small data-k="askd"></small></button>
+<div id="qbox">
+<div id="qleft"></div>
+<textarea id="qtext"></textarea>
+<button onclick="askQ()" data-k="send"></button>
+<div id="ans"></div>
+</div>
+<button class="card" onclick="pick('')"><span data-k="up"></span><small data-k="upd"></small></button>
+<button class="card" onclick="soon()"><span data-k="calc"></span><small data-k="calcd"></small></button>
+<h2 data-k="mach"></h2>
+<div id="list"></div>
+<button class="card" onclick="addMachine()"><span data-k="add"></span></button>
+<div id="adbox" data-k="ad"></div>
+<p id="msg"></p>
+<input type="file" id="file" accept="application/pdf" hidden>
+<script>
+const SB_URL='https://jaggdqkbmkissbravwqi.supabase.co';
+const SB_KEY='sb_publishable_YhPHvyAH2GMCCaWsayxI2g_nDYczbeo';
+const UPLOAD_PASSWORD='CHANGE_ME_1234';
+const FREE_LIMIT=5;
+const MAX_MB=50;
+const T={
+en:{ask:'AI machine question',askd:'Ask about setup, operation or faults',up:'Upload PDF manual',upd:'Only the owner can upload',calc:'Machine calculator',calcd:'Quick production and setting calculations',mach:'Machines',add:'+ Add other machine',upl:'Upload',shr:'Share',view:'View',bad:'Only PDF files up to '+MAX_MB+' MB are allowed.',wait:'Uploading...',ok:'Sent for approval. It will appear after it is approved.',fail:'Upload failed. Check your internet and try again.',name:'Machine or company name',soon:'This feature is connected in the next step.',none:'No approved manuals yet.',ld:'Loading...',which:'Choose a machine first, then press Upload.',pw:'Enter the owner password to upload',wrong:'Wrong password.',send:'Get answer',left:'Free questions left today: ',empty:'Type your question first.',limit:'Your free limit for today is over. Paid plan is coming soon.',demo:'Demo answer: the real AI will answer here from the approved manuals and the internet.',ad:'Ad space'},
+hi:{ask:'AI मशीन सवाल',askd:'सेटअप, ऑपरेशन या खराबी के बारे में पूछें',up:'PDF मैनुअल अपलोड करें',upd:'सिर्फ मालिक अपलोड कर सकता है',calc:'मशीन कैलकुलेटर',calcd:'तुरंत प्रोडक्शन और सेटिंग की गणना',mach:'मशीनें',add:'+ दूसरी मशीन जोड़ें',upl:'अपलोड',shr:'शेयर',view:'देखें',bad:'सिर्फ PDF फाइल, '+MAX_MB+' MB तक, चलेगी।',wait:'अपलोड हो रहा है...',ok:'मंज़ूरी के लिए भेज दिया गया। मंज़ूरी के बाद दिखेगा।',fail:'अपलोड नहीं हो पाया। इंटरनेट देखकर दोबारा कोशिश करें।',name:'मशीन या कंपनी का नाम',soon:'यह सुविधा अगले चरण में जुड़ेगी।',none:'अभी कोई मंज़ूर मैनुअल नहीं है।',ld:'लोड हो रहा है...',which:'पहले कोई मशीन चुनें, फिर अपलोड दबाएँ।',pw:'अपलोड के लिए मालिक का पासवर्ड डालें',wrong:'पासवर्ड गलत है।',send:'जवाब पाएँ',left:'आज के मुफ़्त सवाल बचे: ',empty:'पहले अपना सवाल लिखें।',limit:'आज की मुफ़्त सीमा ख़त्म हो गई। पेड प्लान जल्द आ रहा है।',demo:'नमूना जवाब: असली AI यहाँ मंज़ूर मैनुअल और इंटरनेट से जवाब देगा।',ad:'विज्ञापन की जगह'}
+};
+function sget(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+const DEFAULT=['LMW R/F LR9 SXL','LMW Speed Frame','LMW RSB','LMW Draw Frame','LMW Lap Former','LMW Carding','Rieter','Truetzschler','Marzoli','Toyota','Schlafhorst'];
+let lang=sget('lang')==='hi'?'hi':'en';
+let machines=DEFAULT;
+try{const s=JSON.parse(sget('machines')||'null');if(Array.isArray(s))machines=s}catch(e){}
+let current='';
+let unlocked=false;
+const msg=document.getElementById('msg');
+function say(t,c){msg.style.color=c;msg.textContent=t}
+function soon(){say(T[lang].soon,'#5b7186')}
+function today(){return new Date().toISOString().slice(0,10)}
+function used(){try{const o=JSON.parse(sget('q')||'null');if(o&&o.d===today())return o.n}catch(e){}return 0}
+function showLeft(){const l=Math.max(0,FREE_LIMIT-used());document.getElementById('qleft').textContent=T[lang].left+l}
+function toggleAsk(){const b=document.getElementById('qbox');b.style.display=b.style.display==='block'?'none':'block';showLeft()}
+function askQ(){const t=document.getElementById('qtext').value.trim();const a=document.getElementById('ans');
+if(!t){a.textContent=T[lang].empty;return}
+const n=used();
+if(n>=FREE_LIMIT){a.textContent=T[lang].limit;return}
+sset('q',JSON.stringify({d:today(),n:n+1}));
+a.textContent=T[lang].demo;showLeft()}
+function setLang(l){lang=l;sset('lang',l);document.documentElement.lang=l;
+document.getElementById('en').className=l=='en'?'on':'';document.getElementById('hi').className=l=='hi'?'on':'';
+document.querySelectorAll('[data-k]').forEach(e=>e.textContent=T[l][e.dataset.k]);
+document.getElementById('qtext').placeholder=T[l].ask;
+msg.textContent='';showLeft();render();}
+function pick(m){
+if(!m){say(T[lang].which,'#5b7186');return}
+if(!unlocked){const p=prompt(T[lang].pw);if(p===null)return;if(p!==UPLOAD_PASSWORD){say(T[lang].wrong,'#b00020');return}unlocked=true}
+current=m;document.getElementById('file').click()}
+function render(){const d=document.getElementById('list');d.innerHTML='';
+machines.forEach(m=>{const box=document.createElement('div');box.className='machine';
+const r=document.createElement('div');r.className='row';
+const n=document.createElement('span');n.className='nm';n.textContent=m;
+const w=document.createElement('span');
+const b1=document.createElement('button');b1.textContent=T[lang].upl;
+const b2=document.createElement('button');b2.textContent=T[lang].shr;
+const files=document.createElement('div');
+n.onclick=()=>toggle(m,files);
+b1.onclick=()=>pick(m);
+b2.onclick=()=>share(m);
+w.append(b1,b2);r.append(n,w);box.append(r,files);d.appendChild(box);});}
+async function toggle(m,box){
+if(box.dataset.open){box.innerHTML='';delete box.dataset.open;return}
+box.dataset.open='1';box.innerHTML='<div class="empty">'+T[lang].ld+'</div>';
+try{
+const res=await fetch(SB_URL+'/rest/v1/manuals?select=file_name,file_path&status=eq.approved&machine=eq.'+encodeURIComponent(m),{headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}});
+if(!res.ok)throw new Error('x');
+const rows=await res.json();box.innerHTML='';
+if(!rows.length){const e=document.createElement('div');e.className='empty';e.textContent=T[lang].none;box.appendChild(e);return}
+rows.forEach(f=>{const url=SB_URL+'/storage/v1/object/public/manuals/'+f.file_path;
+const p=document.createElement('div');p.className='pdf';
+const s=document.createElement('span');s.textContent=f.file_name;
+const a=document.createElement('button');a.textContent=T[lang].view;a.onclick=()=>window.open(url,'_blank');
+const h=document.createElement('button');h.textContent=T[lang].shr;h.onclick=()=>shareUrl(f.file_name,url);
+const g=document.createElement('span');g.append(a,h);p.append(s,g);box.appendChild(p);});
+}catch(e){box.innerHTML='<div class="empty">'+T[lang].fail+'</div>'}}
+function shareUrl(t,u){if(navigator.share){navigator.share({title:t,text:t,url:u}).catch(function(){})}else{window.open('https://wa.me/?text='+encodeURIComponent(t+' '+u))}}
+function share(m){shareUrl('Spin Expert AI - '+m,location.href)}
+function addMachine(){const n=prompt(T[lang].name);if(n&&n.trim()){machines.push(n.trim());sset('machines',JSON.stringify(machines));render()}}
+function rid(){return (crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2))}
+document.getElementById('file').onchange=async function(e){const f=e.target.files[0];e.target.value='';
+if(!f)return;
+if(f.type!=='application/pdf'||f.size>MAX_MB*1024*1024){say(T[lang].bad,'#b00020');return}
+say(T[lang].wait,'#5b7186');
+try{
+const path=rid()+'.pdf';
+const up=await fetch(SB_URL+'/storage/v1/object/manuals/'+path,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/pdf'},body:f});
+if(!up.ok)throw new Error('storage '+up.status);
+const ins=await fetch(SB_URL+'/rest/v1/manuals',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({machine:current,file_name:f.name,file_path:path,status:'pending'})});
+if(!ins.ok)throw new Error('table '+ins.status);
+say(T[lang].ok,'#0a7a3b');
+}catch(err){say(T[lang].fail+' ('+err.message+')','#b00020')}};
+setLang(lang);
+</script>
+</body>
+</html>
